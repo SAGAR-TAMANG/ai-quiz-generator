@@ -12,7 +12,8 @@ A simple Django web application that generates customized quiz questions on any 
 
 ## Demo
 
-Check out the live demo: [AI Quiz Generator Demo](https://your-demo-link-here.com)
+<!-- Check out the live demo: [AI Quiz Generator Demo](https://your-demo-link-here.com) -->
+The Demo will be there soon.
 
 ## Installation
 
