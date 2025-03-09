@@ -1,0 +1,65 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Quiz Generator</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .quiz-header {
+            background-color: #f8f9fa;
+            padding: 2rem 0;
+            margin-bottom: 2rem;
+            border-radius: 0.5rem;
+        }
+        .form-container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container py-5">
+        <div class="quiz-header text-center">
+            <h1 class="display-4">AI Quiz Generator</h1>
+            <p class="lead">Generate custom quizzes on any topic</p>
+        </div>
+        
+        <div class="form-container">
+            <div class="card shadow">
+                <div class="card-body">
+                    <form method="POST" action="{% url 'generate_quiz' %}">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="topic" class="form-label">Enter a Topic</label>
+                            <input type="text" class="form-control form-control-lg" id="topic" 
+                                   name="topic" placeholder="e.g. Ancient Egypt, Quantum Physics, Python Programming" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="difficulty" class="form-label">Difficulty Level</label>
+                            <select class="form-select" id="difficulty" name="difficulty">
+                                <option value="easy">Easy</option>
+                                <option value="medium" selected>Medium</option>
+                                <option value="hard">Hard</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="num_questions" class="form-label">Number of Questions</label>
+                            <input type="number" class="form-control" id="num_questions" 
+                                   name="num_questions" min="5" max="20" value="10">
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-lg">Generate Quiz</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

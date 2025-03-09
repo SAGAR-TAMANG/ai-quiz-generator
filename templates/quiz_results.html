@@ -1,0 +1,90 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz on {{ topic }}</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .quiz-header {
+            background-color: #f8f9fa;
+            padding: 1.5rem 0;
+            margin-bottom: 2rem;
+            border-radius: 0.5rem;
+        }
+        .question-card {
+            margin-bottom: 1.5rem;
+        }
+        .answer {
+            display: none;
+            margin-top: 1rem;
+            padding: 1rem;
+            background-color: #e8f4f8;
+            border-radius: 0.5rem;
+        }
+        .question-number {
+            background-color: #0d6efd;
+            color: white;
+            width: 2rem;
+            height: 2rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            margin-right: 0.75rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container py-4">
+        <div class="quiz-header text-center">
+            <h1 class="display-5">Quiz on: {{ topic }}</h1>
+            <p class="lead">Difficulty: {{ difficulty }} | {{ quiz_questions|length }} Questions</p>
+        </div>
+        
+        <div class="row">
+            <div class="col-lg-8 mx-auto">
+                {% for question in quiz_questions %}
+                <div class="card question-card shadow-sm">
+                    <div class="card-header d-flex align-items-center">
+                        <span class="question-number">{{ forloop.counter }}</span>
+                        <h5 class="mb-0">{{ question.question }}</h5>
+                    </div>
+                    <div class="card-body">
+                        <button class="btn btn-outline-primary toggle-answer" 
+                                onclick="toggleAnswer('answer-{{ forloop.counter }}')">
+                            Show Answer
+                        </button>
+                        <div id="answer-{{ forloop.counter }}" class="answer">
+                            <strong>Answer:</strong> {{ question.answer }}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+                
+                <div class="d-grid gap-2 mt-4">
+                    <a href="{% url 'index' %}" class="btn btn-primary">Generate Another Quiz</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        function toggleAnswer(answerId) {
+            const answerElement = document.getElementById(answerId);
+            const isHidden = answerElement.style.display === 'none' || answerElement.style.display === '';
+            
+            answerElement.style.display = isHidden ? 'block' : 'none';
+            
+            // Change button text
+            const button = event.currentTarget;
+            button.textContent = isHidden ? 'Hide Answer' : 'Show Answer';
+        }
+    </script>
+</body>
+</html>
