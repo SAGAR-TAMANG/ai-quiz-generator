@@ -38,103 +38,111 @@ def generate_quiz(request):
     # If not POST, redirect to index
     return render(request, 'index.html')
 
-def generate_questions_with_openai(topic, difficulty, num_questions):
+def generate_questions_with_openai(topic: str,
+                                   difficulty: str,
+                                   num_questions: int) -> list[dict]:
     """
-    Generate quiz questions using OpenAI's API.
-    
-    Args:
-        topic (str): The topic for the quiz.
-        difficulty (str): The difficulty level (easy, medium, hard).
-        num_questions (int): The number of questions to generate.
-        
-    Returns:
-        list: A list of dictionaries with questions and answers.
+    Generate multiple-choice quiz questions with Sutra-Light.
+    Returns: [{question:str, options:{option_1:str,…}, answer:str}, …]
     """
     try:
         print("INSIDE OPENAI")
-        sutra_url = 'https://api.two.ai/v2'
-        client = OpenAI(base_url=sutra_url, api_key=os.getenv("SUTRA_API_KEY"))
-        
-        # Create the prompt for OpenAI
-        prompt = f"""
-        Generate {num_questions} quiz questions about {topic} at a {difficulty} difficulty level.
-        Each question should have a clear answer.
-        Format the response as a JSON array of objects, each with 'question' and 'answer' fields.
-        """
-        
 
-        # Call OpenAI API
+        client = OpenAI(
+            base_url="https://api.two.ai/v2",
+            api_key=os.getenv("SUTRA_API_KEY"),
+        )
+
+        # ---------- PROMPT --------------------------------------------------
+        prompt = f"""
+You are a Google-certified instructional designer.
+
+Create **{num_questions}** {difficulty.lower()}-level MCQs on **{topic}**.
+Each object in the JSON array MUST look exactly like this template
+and MUST be valid JSON (no comments, no trailing commas):
+
+{{
+  "question": "The text of the question?",
+  "options": {{
+    "option_1": "first answer choice",
+    "option_2": "second answer choice",
+    "option_3": "third answer choice",
+    "option_4": "fourth answer choice"
+  }},
+  "answer": "option_2"   // key of the correct option above
+}}
+
+Return **only** the JSON array – nothing else.
+"""
+        # --------------------------------------------------------------------
+
         stream = client.chat.completions.create(
-            model='sutra-light',
+            model="sutra-light",
             messages=[
-                {"role": "system", "content": "You are a helpful assistant that generates quiz questions."},
-                {"role": "user", "content": prompt}
+                {"role": "system",
+                 "content": "You are a helpful assistant that generates quiz questions."},
+                {"role": "user", "content": prompt},
             ],
-            max_tokens=2000,
+            max_tokens=2048,
             temperature=0.7,
-            stream=True
+            stream=True,
         )
 
         chunks = []
-
         for chunk in stream:
-            message_chunk = chunk.choices[0].delta.content
+            delta = chunk.choices[0].delta.content
+            if delta:
+                chunks.append(delta)
 
-            if len(chunk.choices) > 0:
-                content = chunk.choices[0].delta.content
-                if content:
-                    chunks.append(message_chunk)
+        content = "".join(chunks)
+        print("GENERATED:", content[:200] + ("…" if len(content) > 200 else ""))
 
-        content = ''.join(chunks)
-        print(f"GENERATED: {content}")
-
-
-        # Extract and parse the response
-        # content = response.choices[0].message.content
-        
-        # Try to find JSON in the response
+        # ---------- JSON PARSING -------------------------------------------
         try:
-            # First attempt: try to parse the entire response as JSON
             questions = json.loads(content)
-            
-            print(f"QUESTIONS: {questions}")
         except json.JSONDecodeError:
-            # Second attempt: try to extract JSON from the text
-            # This is a fallback in case the AI includes explanatory text
-            import re
-            json_match = re.search(r'\[.*\]', content, re.DOTALL)
-            if json_match:
-                questions = json.loads(json_match.group(0))
+            # fallback 1 – extract first […] block
+            match = re.search(r"\[[\s\S]*?]", content)
+            if match:
+                questions = json.loads(match.group(0))
             else:
-                # If JSON parsing fails, create a simple format manually
-                questions = []
-                lines = content.split('\n')
-                question = None
-                for line in lines:
-                    if line.strip().startswith(('Q', 'Question')):
-                        if question:
-                            questions.append(question)
-                        question = {'question': line.split(':', 1)[1].strip() if ':' in line else line.strip(), 'answer': ''}
-                    elif line.strip().startswith(('A', 'Answer')) and question:
-                        question['answer'] = line.split(':', 1)[1].strip() if ':' in line else line.strip()
-                if question and question['answer']:
-                    questions.append(question)
-        
-        # Ensure we have the expected format
-        formatted_questions = []
-        for item in questions:
-            if isinstance(item, dict) and 'question' in item and 'answer' in item:
-                formatted_questions.append({
-                    'question': item['question'],
-                    'answer': item['answer']
+                # fallback 2 – give up gracefully
+                raise ValueError("Model did not return valid JSON.")
+
+        # ---------- VALIDATION / NORMALISATION -----------------------------
+        formatted = []
+        for q in questions:
+            # the model might nest options under "question" – fix that:
+            if isinstance(q.get("question"), dict) and not q.get("options"):
+                q["options"], q["question"] = q["question"], "QUESTION_TEXT_MISSING"
+
+            # ensure required keys
+            if not all(k in q for k in ("question", "options", "answer")):
+                continue
+
+            formatted.append({
+                "question": q["question"],
+                "options": q["options"],
+                "answer": q["answer"],
+            })
+
+        # Ensure we return the exact amount requested
+        if len(formatted) < num_questions:
+            print("Warning: fewer items than requested; filling with placeholders.")
+            while len(formatted) < num_questions:
+                formatted.append({
+                    "question": f"Placeholder question on {topic}",
+                    "options": {f"option_{i}": f"Answer {i}" for i in range(1, 5)},
+                    "answer": "option_1",
                 })
-        
-        return formatted_questions[:num_questions]
-    
-    except Exception as e:
-        # In case of any error, return some default questions
-        print(f"Error generating questions: {e}")
-        return [
-            {'question': f'Question about {topic} (Error occurred while generating quiz)', 
-             'answer': 'Please try again later.'}
-        ]
+
+        return formatted[:num_questions]
+
+    # -------------------- ERROR HANDLING -----------------------------------
+    except Exception as exc:
+        print(f"Error generating questions: {exc}")
+        return [{
+            "question": f"Unable to generate quiz on {topic}.",
+            "options": {f"option_{i}": "—" for i in range(1, 5)},
+            "answer": "option_1",
+        }]
